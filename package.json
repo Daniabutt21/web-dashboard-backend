@@ -1,0 +1,25 @@
+{
+  "name": "web-dashboard-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Express API for Daily Workload Dashboard",
+  "main": "index.js",
+  "scripts": {
+    "start": "NODE_ENV=production node index.js",
+    "dev": "NODE_ENV=development node index.js",
+    "migrate": "node -e \"require('./src/migrations').migrate()\""
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "csv-parse": "^5.5.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "morgan": "^1.10.0",
+    "node-cron": "^3.0.3",
+    "mysql2": "^3.11.3",
+    "sequelize": "^6.37.3"
+  }
+}
+
