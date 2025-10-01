@@ -1,3 +1,4 @@
+// Express server entrypoint: config, API routes, and static frontend serving
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
@@ -21,14 +22,12 @@ registerRoutes(app);
 const clientDir = path.join(__dirname, '../web-dashboard');
 app.use(express.static(clientDir));
 app.get('*', (req, res) => {
-  res.sendFile(path.join(clientDir, 'index.html'));
+	res.sendFile(path.join(clientDir, 'index.html'));
 });
 
 const config = getConfig();
 const port = config.port;
 
 app.listen(port, () => {
-  console.log(`Server listening on http://localhost:${port}`);
+	console.log(`Server listening on http://localhost:${port}`);
 });
-
-

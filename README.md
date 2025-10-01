@@ -49,6 +49,18 @@ API will be available at http://localhost:3000
 
 - `GET /api/metrics/daily?date=YYYY-MM-DD` - Get daily metrics with optional date filter
 
+Response example:
+```json
+{
+  "date": "2024-04-19",
+  "metrics": [
+    { "label": "DOCUMENTS RECEIVED", "value": 60, "highlight": false },
+    { "label": "ON HOLD-QA", "value": 25, "highlight": true },
+    { "label": "COMPLETED", "value": 10, "highlight": false }
+  ]
+}
+```
+
 ## Database
 
 - Uses MySQL with Sequelize ORM
