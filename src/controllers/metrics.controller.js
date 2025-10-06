@@ -13,7 +13,6 @@ async function getDailyMetrics(req, res) {
 		'WS correction requested': 'WS CORRECTION REQUESTED',
 		'WS Correction Complete': 'WS CORRECTION COMPLETE',
 		'Post Audit': 'POST AUDIT',
-		'Completed': 'COMPLETED'
 	};
 
 	const uiOrder = [
@@ -25,29 +24,80 @@ async function getDailyMetrics(req, res) {
 		'SUCCESSFULLY SENT TO DMV',
 		'WS CORRECTION REQUESTED',
 		'WS CORRECTION COMPLETE',
-		'COMPLETED',
 		'POST AUDIT'
 	];
 
-	const where = {};
-	if (date) where.date_created = date;
-
-	const rows = await RegistrationStatus.findAll({
-		attributes: [
-			[sequelize.fn('TRIM', sequelize.col('status')), 'status'],
-			[sequelize.fn('DATE', sequelize.col('date_created')), 'date'],
-			[sequelize.fn('COUNT', '*'), 'count']
-		],
-		where,
-		group: ['status', sequelize.fn('DATE', sequelize.col('date_created'))]
-	});
+	let rows;
+	
+	if (date) {
+		rows = await sequelize.query(`
+			WITH completed_registrations AS (
+				SELECT DISTINCT registration_id
+				FROM registration_statuses
+				WHERE status = 'Completed' 
+				  AND DATE(date_created) <= :selectedDate
+			),
+			latest_status_per_registration AS (
+				SELECT 
+					rs.registration_id,
+					rs.status,
+					rs.date_created,
+					ROW_NUMBER() OVER (
+						PARTITION BY rs.registration_id, DATE(rs.date_created) 
+						ORDER BY rs.date_created DESC
+					) as rn_date,
+					ROW_NUMBER() OVER (
+						PARTITION BY rs.registration_id 
+						ORDER BY rs.date_created DESC
+					) as rn_overall
+				FROM registration_statuses rs
+				WHERE DATE(rs.date_created) <= :selectedDate
+				  AND rs.registration_id NOT IN (SELECT registration_id FROM completed_registrations)
+			),
+			status_for_date AS (
+				SELECT 
+					registration_id,
+					status,
+					date_created,
+					ROW_NUMBER() OVER (
+						PARTITION BY registration_id 
+						ORDER BY 
+							CASE WHEN DATE(date_created) = :selectedDate THEN 0 ELSE 1 END,
+							date_created DESC
+					) as rn
+				FROM latest_status_per_registration
+				WHERE (DATE(date_created) = :selectedDate AND rn_date = 1) 
+				   OR (DATE(date_created) < :selectedDate AND rn_overall = 1)
+			)
+			SELECT 
+				TRIM(status) as status,
+				DATE(:selectedDate) as date,
+				COUNT(*) as count
+			FROM status_for_date
+			WHERE rn = 1
+			GROUP BY status
+		`, {
+			replacements: { selectedDate: date },
+			type: sequelize.QueryTypes.SELECT
+		});
+	} else {
+		rows = await RegistrationStatus.findAll({
+			attributes: [
+				[sequelize.fn('TRIM', sequelize.col('status')), 'status'],
+				[sequelize.fn('DATE', sequelize.col('date_created')), 'date'],
+				[sequelize.fn('COUNT', '*'), 'count']
+			],
+			group: ['status', sequelize.fn('DATE', sequelize.col('date_created'))]
+		});
+	}
 
 	const counts = {};
 	rows.forEach(r => {
-		const raw = r.get('status');
+		const raw = r.status || r.get('status');
 		const normalized = String(raw).replace(/\s+/g, ' ').trim().replace(/\s,$/, '').replace(/\s+$/, '');
 		const label = labelMap[normalized] || normalized.toUpperCase();
-		counts[label] = (counts[label] || 0) + Number(r.get('count'));
+		const count = r.count || r.get('count');
+		counts[label] = (counts[label] || 0) + Number(count);
 	});
 
 	const metrics = uiOrder.map(label => ({

@@ -1,5 +1,6 @@
 require('dotenv').config();
 const { up: up001 } = require('./001_create_registration_statuses');
+const { up: up002 } = require('./002_create_registrations');
 const mysql = require('mysql2/promise');
 const { sequelize } = require('../models');
 const { runImport } = require('../scripts/importer');
@@ -28,10 +29,11 @@ async function ensureDatabase() {
 async function migrate() {
 	await ensureDatabase();
 	await sequelize.authenticate();
+	await up002();
 	await up001();
-	const total = await runImport();
+	const { registrationCount, statusCount } = await runImport();
 	// eslint-disable-next-line no-console
-	console.log(`Imported ${total} CSV rows.`);
+	console.log(`Migration completed. Imported ${registrationCount} registrations and ${statusCount} registration statuses.`);
 }
 
 module.exports = { migrate };
